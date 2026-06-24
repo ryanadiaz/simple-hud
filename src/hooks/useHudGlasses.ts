@@ -7,10 +7,10 @@
  *
  * Container map (5 px invisible border on all sides; usable area x:5–571, y:5–283):
  *   [0] Event capture  x:0,   y:0,   w:576, h:288  (invisible touch target — full screen)
- *   [1] Clock          x:355, y:5,   w:216, h:283  (bottom = 288 — suppresses firmware scroll indicator)
- *   [2] Weather        x:355, y:32,  w:216, h:251
- *   [3] Decibels       x:355, y:88,  w:216, h:195  (used when weather is ON)
- *   [4] Decibels alt   x:355, y:32,  w:216, h:251  (used when weather is OFF — shares weather slot)
+ *   [1] Clock          x:360, y:30,  w:211, h:258  (bottom = 288 — suppresses firmware scroll indicator)
+ *   [2] Weather        x:360, y:57,  w:211, h:231
+ *   [3] Decibels       x:360, y:111, w:211, h:177  (used when weather is ON)
+ *   [4] Decibels alt   x:360, y:57,  w:211, h:231  (used when weather is OFF — shares weather slot)
  *   [5] Reticle main   x:278, y:104, w:20,  h:81   (3-line: top tick / center / bottom tick)
  *   [6] Reticle left   x:258, y:131, w:20,  h:27   (left tick — ─ for circle, else space)
  *   [7] Reticle right  x:298, y:131, w:20,  h:27   (right tick — ─ for circle, else space)
@@ -52,7 +52,7 @@ function weatherText(snapshot: HudSnapshot): string {
   if (!snapshot.locationKnown) return ' '
   if (!snapshot.weather) return 'Weather loading...'
   const w = snapshot.weather
-  return `${w.temp}°F  ${w.emoji}  ${w.condition}\nFeels like ${w.feelsLike}°F`
+  return `${w.temp}°F  ${w.condition}\nFeels like ${w.feelsLike}°F`
 }
 
 function decibelsText(snapshot: HudSnapshot): string {
@@ -161,10 +161,10 @@ export function useHudGlasses(snapshot: HudSnapshot) {
 
         const defs: ContainerDef[] = [
           { key: 'eventCapture', x: 0,   y: 0,   w: 576, h: 288, eventCapture: true, initial: '' },
-          { key: 'clock',        x: 355, y: 5,   w: 216, h: 283, initial: '' },
-          { key: 'weather',      x: 355, y: 32,  w: 216, h: 251, initial: '' },
-          { key: 'decibels',     x: 355, y: 88,  w: 216, h: 195, initial: ' ' },
-          { key: 'decibelsAlt',  x: 355, y: 32,  w: 216, h: 251, initial: ' ' },
+          { key: 'clock',        x: 360, y: 30,  w: 211, h: 258, initial: '' },
+          { key: 'weather',      x: 360, y: 57,  w: 211, h: 231, initial: '' },
+          { key: 'decibels',     x: 360, y: 111, w: 211, h: 177, initial: ' ' },
+          { key: 'decibelsAlt',  x: 360, y: 57,  w: 211, h: 231, initial: ' ' },
           { key: 'reticleMain',  x: 278, y: 104, w: 20,  h: 81,  initial: ' \n \n ' },
           { key: 'reticleLeft',  x: 258, y: 131, w: 20,  h: 27,  initial: ' ' },
           { key: 'reticleRight', x: 298, y: 131, w: 20,  h: 27,  initial: ' ' },

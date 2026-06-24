@@ -28,6 +28,10 @@ export function ReticleWidget({ enabled, onToggle, style, onStyleChange }: Props
           <SectionToggle checked={enabled} onChange={onToggle} />
         </div>
 
+        <p className="text-xs italic text-[var(--color-text-muted)]">
+          Enabling fun mode will deactivate all other settings.
+        </p>
+
         <div className={enabled ? '' : 'opacity-40 pointer-events-none select-none'}>
           <p className="text-xs font-semibold text-[var(--color-text-muted)] mb-2">Reticle</p>
           <div className="grid grid-cols-2 gap-2">

@@ -51,14 +51,17 @@ function Home() {
         <WeatherWidget
           {...weather}
           enabled={settings.weatherEnabled}
-          onToggle={(v) => setSettings({ weatherEnabled: v })}
+          onToggle={(v) => setSettings({ weatherEnabled: v, ...(v && { reticleEnabled: false }) })}
         />
 
         <DecibelWidget
           db={db}
           active={mic.active}
           enabled={settings.micEnabled}
-          onToggle={(v) => { setSettings({ micEnabled: v }); if (v) mic.start(); else mic.stop() }}
+          onToggle={(v) => {
+            setSettings({ micEnabled: v, ...(v && { reticleEnabled: false }) })
+            if (v) mic.start(); else mic.stop()
+          }}
           error={mic.error}
           mode={mic.mode}
           showDecibels={settings.showDecibels}
@@ -67,7 +70,10 @@ function Home() {
 
         <ReticleWidget
           enabled={settings.reticleEnabled}
-          onToggle={(v) => setSettings({ reticleEnabled: v })}
+          onToggle={(v) => {
+            setSettings({ reticleEnabled: v, ...(v && { weatherEnabled: false, micEnabled: false }) })
+            if (v) mic.stop()
+          }}
           style={settings.reticleStyle}
           onStyleChange={(s) => setSettings({ reticleStyle: s })}
         />
