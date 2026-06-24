@@ -9,10 +9,11 @@
  *   [0] Event capture  x:0,   y:0,   w:576, h:288  (invisible touch target — full screen)
  *   [1] Clock          x:355, y:5,   w:216, h:283  (bottom = 288 — suppresses firmware scroll indicator)
  *   [2] Weather        x:355, y:32,  w:216, h:251
- *   [3] Decibels       x:355, y:88,  w:216, h:195
- *   [4] Reticle main   x:278, y:104, w:20,  h:81   (3-line: top tick / center / bottom tick)
- *   [5] Reticle left   x:258, y:131, w:20,  h:27   (left tick — ─ for circle, else space)
- *   [6] Reticle right  x:298, y:131, w:20,  h:27   (right tick — ─ for circle, else space)
+ *   [3] Decibels       x:355, y:88,  w:216, h:195  (used when weather is ON)
+ *   [4] Decibels alt   x:355, y:32,  w:216, h:251  (used when weather is OFF — shares weather slot)
+ *   [5] Reticle main   x:278, y:104, w:20,  h:81   (3-line: top tick / center / bottom tick)
+ *   [6] Reticle left   x:258, y:131, w:20,  h:27   (left tick — ─ for circle, else space)
+ *   [7] Reticle right  x:298, y:131, w:20,  h:27   (right tick — ─ for circle, else space)
  *
  * Reticle characters (all verified 20px wide in firmware font):
  *   cross    ┼   single char, ticks built-in
@@ -35,6 +36,7 @@ interface Elements {
   clock: GlassesTextElement
   weather: GlassesTextElement
   decibels: GlassesTextElement
+  decibelsAlt: GlassesTextElement
   reticleMain: GlassesTextElement
   reticleLeft: GlassesTextElement
   reticleRight: GlassesTextElement
@@ -58,6 +60,30 @@ function decibelsText(snapshot: HudSnapshot): string {
   // drops empty-string content updates and leaves stale text visible.
   if (!snapshot.showDecibels || !snapshot.micActive || snapshot.db === null) return ' '
   return `Mic: ${Math.round(snapshot.db)} dB`
+}
+
+// Routes dB text to the correct container based on weather state.
+// When weather is off, decibelsAlt occupies the weather slot (y:32) so there
+// is no gap between the clock and the decibels readout.
+function decibelsRouted(snapshot: HudSnapshot): { main: string; alt: string } {
+  const text = decibelsText(snapshot)
+  return snapshot.weatherEnabled
+    ? { main: text, alt: ' ' }
+    : { main: ' ',  alt: text }
+}
+
+// Returns a 10-line box-border string for the full 576×288 display, or a single
+// space when fun mode is off. Rendered in the eventCapture container (z-order 0,
+// behind all other containers) via textContainerUpgrade — the same flicker-free
+// path used for clock/weather/decibels. setBorder is NOT used here because the
+// firmware ignores border changes sent via rebuildPageContainer; only the initial
+// createStartUpPageContainer reliably applies them.
+//
+// Layout: top + bottom lines only (28 × ─ = 560px wide), 8 blank lines between
+function borderText(snapshot: HudSnapshot): string {
+  if (!snapshot.reticleEnabled) return ' '
+  const line = '─'.repeat(28)
+  return [line, ...Array(8).fill(' '), line].join('\n')
 }
 
 // Returns content for the 3 reticle containers: { main (3 lines), left, right }.
@@ -137,7 +163,8 @@ export function useHudGlasses(snapshot: HudSnapshot) {
           { key: 'eventCapture', x: 0,   y: 0,   w: 576, h: 288, eventCapture: true, initial: '' },
           { key: 'clock',        x: 355, y: 5,   w: 216, h: 283, initial: '' },
           { key: 'weather',      x: 355, y: 32,  w: 216, h: 251, initial: '' },
-          { key: 'decibels',     x: 355, y: 88,  w: 216, h: 195, initial: '' },
+          { key: 'decibels',     x: 355, y: 88,  w: 216, h: 195, initial: ' ' },
+          { key: 'decibelsAlt',  x: 355, y: 32,  w: 216, h: 251, initial: ' ' },
           { key: 'reticleMain',  x: 278, y: 104, w: 20,  h: 81,  initial: ' \n \n ' },
           { key: 'reticleLeft',  x: 258, y: 131, w: 20,  h: 27,  initial: ' ' },
           { key: 'reticleRight', x: 298, y: 131, w: 20,  h: 27,  initial: ' ' },
@@ -164,9 +191,12 @@ export function useHudGlasses(snapshot: HudSnapshot) {
 
         // Initial text
         const snap = snapshotRef.current
+        els.eventCapture!.setContent(borderText(snap))
+        const db = decibelsRouted(snap)
         els.clock!.setContent(clockText(snap))
         els.weather!.setContent(weatherText(snap))
-        els.decibels!.setContent(decibelsText(snap))
+        els.decibels!.setContent(db.main)
+        els.decibelsAlt!.setContent(db.alt)
         const rc = reticleContent(snap)
         els.reticleMain!.setContent(rc.main)
         els.reticleLeft!.setContent(rc.left)
@@ -185,9 +215,12 @@ export function useHudGlasses(snapshot: HudSnapshot) {
           readyRef.current = false
           try {
             const s = snapshotRef.current
+            els.eventCapture!.setContent(borderText(s))
+            const db = decibelsRouted(s)
             els.clock!.setContent(clockText(s))
             els.weather!.setContent(weatherText(s))
-            els.decibels!.setContent(decibelsText(s))
+            els.decibels!.setContent(db.main)
+            els.decibelsAlt!.setContent(db.alt)
             const rc = reticleContent(s)
             els.reticleMain!.setContent(rc.main)
             els.reticleLeft!.setContent(rc.left)
@@ -293,19 +326,20 @@ export function useHudGlasses(snapshot: HudSnapshot) {
 
   useEffect(() => {
     if (!readyRef.current) return
-    const el = elementsRef.current?.decibels
-    if (!el) return
-    // Use snapshotRef.current (always the latest render's values) rather than
-    // the closed-over snapshot, so a dep-change triggered from any batched
-    // render still sees the correct showDecibels / micActive / db state.
-    el.setContent(decibelsText(snapshotRef.current)).updateWithEvenHubSdk()
+    const els = elementsRef.current
+    if (!els) return
+    // Use snapshotRef.current so batched renders always see the latest values.
+    const { main, alt } = decibelsRouted(snapshotRef.current)
+    els.decibels.setContent(main).updateWithEvenHubSdk()
+    els.decibelsAlt.setContent(alt).updateWithEvenHubSdk()
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [snapshot.db, snapshot.showDecibels, snapshot.micActive])
+  }, [snapshot.db, snapshot.showDecibels, snapshot.micActive, snapshot.weatherEnabled])
 
   useEffect(() => {
     if (!readyRef.current) return
     const els = elementsRef.current
     if (!els) return
+    els.eventCapture.setContent(borderText(snapshot)).updateWithEvenHubSdk()
     const { main, left, right } = reticleContent(snapshot)
     els.reticleMain.setContent(main).updateWithEvenHubSdk()
     els.reticleLeft.setContent(left).updateWithEvenHubSdk()

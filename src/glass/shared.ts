@@ -12,6 +12,7 @@ export interface HudSnapshot {
   db: number | null
   micActive: boolean
   showDecibels: boolean
+  weatherEnabled: boolean
   reticleEnabled: boolean
   reticleStyle: ReticleStyle
 }

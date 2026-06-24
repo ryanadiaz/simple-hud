@@ -38,6 +38,7 @@ function Home() {
     db,
     micActive: mic.active,
     showDecibels: settings.showDecibels,
+    weatherEnabled: settings.weatherEnabled,
     reticleEnabled: settings.reticleEnabled,
     reticleStyle: settings.reticleStyle,
   })

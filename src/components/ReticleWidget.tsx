@@ -23,12 +23,13 @@ export function ReticleWidget({ enabled, onToggle, style, onStyleChange }: Props
 
         <div className="flex items-center justify-between">
           <span className="text-xs font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">
-            Reticle
+            Fun Mode
           </span>
           <SectionToggle checked={enabled} onChange={onToggle} />
         </div>
 
         <div className={enabled ? '' : 'opacity-40 pointer-events-none select-none'}>
+          <p className="text-xs font-semibold text-[var(--color-text-muted)] mb-2">Reticle</p>
           <div className="grid grid-cols-2 gap-2">
             {STYLES.map((s) => (
               <button

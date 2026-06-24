@@ -19,7 +19,7 @@ const DEFAULTS: Settings = {
   reticleStyle: 'cross',
 }
 
-const STORAGE_KEY = 'hud-settings'
+const STORAGE_KEY = 'hud-settings-v2'
 
 function load(): Settings {
   let settings: Settings = { ...DEFAULTS }
