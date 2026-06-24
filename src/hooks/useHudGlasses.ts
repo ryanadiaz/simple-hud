@@ -1,0 +1,316 @@
+/**
+ * useHudGlasses — custom glasses display hook using GlassesSdk directly.
+ *
+ * Creates a page with overlapping text containers at absolute pixel
+ * positions on the 576×288 G2 display. Each container is updated in-place
+ * via updateWithEvenHubSdk() — no full page rebuilds, no flicker.
+ *
+ * Container map (5 px invisible border on all sides; usable area x:5–571, y:5–283):
+ *   [0] Event capture  x:0,   y:0,   w:576, h:288  (invisible touch target — full screen)
+ *   [1] Clock          x:355, y:5,   w:216, h:283  (bottom = 288 — suppresses firmware scroll indicator)
+ *   [2] Weather        x:355, y:32,  w:216, h:251
+ *   [3] Decibels       x:355, y:88,  w:216, h:195
+ *   [4] Reticle main   x:278, y:104, w:20,  h:81   (3-line: top tick / center / bottom tick)
+ *   [5] Reticle left   x:258, y:131, w:20,  h:27   (left tick — ─ for circle, else space)
+ *   [6] Reticle right  x:298, y:131, w:20,  h:27   (right tick — ─ for circle, else space)
+ *
+ * Reticle characters (all verified 20px wide in firmware font):
+ *   cross    ┼   single char, ticks built-in
+ *   circle   ○ with │ top/bottom + ─ left/right flanking containers
+ *   bullseye ◎  single char
+ *   diamond  ◆  single char
+ */
+import { useEffect, useRef } from 'react'
+import { EvenHubBridge } from 'even-toolkit/bridge'
+import { GlassesSdk, GlassesTextElement } from 'even-toolkit/sdk-wrapper'
+import { mapGlassEvent } from 'even-toolkit/action-map'
+import { bindKeyboard } from 'even-toolkit/keyboard'
+import { activateKeepAlive, deactivateKeepAlive } from 'even-toolkit/keep-alive'
+import { OsEventTypeList, type LaunchSource, type EvenHubEvent } from '@evenrealities/even_hub_sdk'
+import { appSplash } from '../glass/splash'
+import type { HudSnapshot } from '../glass/shared'
+
+interface Elements {
+  eventCapture: GlassesTextElement
+  clock: GlassesTextElement
+  weather: GlassesTextElement
+  decibels: GlassesTextElement
+  reticleMain: GlassesTextElement
+  reticleLeft: GlassesTextElement
+  reticleRight: GlassesTextElement
+}
+
+// ── Text formatters ──────────────────────────────────────────────────────────
+
+function clockText(snapshot: HudSnapshot): string {
+  return snapshot.timeStr
+}
+
+function weatherText(snapshot: HudSnapshot): string {
+  if (!snapshot.locationKnown) return ' '
+  if (!snapshot.weather) return 'Weather loading...'
+  const w = snapshot.weather
+  return `${w.temp}°F  ${w.emoji}  ${w.condition}\nFeels like ${w.feelsLike}°F`
+}
+
+function decibelsText(snapshot: HudSnapshot): string {
+  // Return a single space (not '') when inactive — the G2 firmware silently
+  // drops empty-string content updates and leaves stale text visible.
+  if (!snapshot.showDecibels || !snapshot.micActive || snapshot.db === null) return ' '
+  return `Mic: ${Math.round(snapshot.db)} dB`
+}
+
+// Returns content for the 3 reticle containers: { main (3 lines), left, right }.
+// Spaces instead of '' everywhere — firmware silently drops empty-string updates.
+function reticleContent(snapshot: HudSnapshot): { main: string; left: string; right: string } {
+  if (!snapshot.reticleEnabled) return { main: ' \n \n ', left: ' ', right: ' ' }
+  switch (snapshot.reticleStyle) {
+    case 'cross':    return { main: ' \n┼\n ', left: ' ', right: ' ' }
+    case 'circle':   return { main: '│\n○\n│', left: '─', right: '─' }
+    case 'bullseye': return { main: ' \n◎\n ', left: ' ', right: ' ' }
+    case 'diamond':  return { main: ' \n◆\n ', left: ' ', right: ' ' }
+  }
+}
+
+// ── Hook ─────────────────────────────────────────────────────────────────────
+
+export function useHudGlasses(snapshot: HudSnapshot) {
+  const snapshotRef = useRef<HudSnapshot>(snapshot)
+  snapshotRef.current = snapshot
+
+  const elementsRef = useRef<Elements | null>(null)
+  const sdkRef = useRef<GlassesSdk | null>(null)
+  const readyRef = useRef(false)
+  // Item 7: track launch source for adaptive behaviour (glassesMenu = user is already wearing)
+  const launchSourceRef = useRef<LaunchSource | null>(null)
+
+  // ── Initialize once ────────────────────────────────────────────────────────
+  useEffect(() => {
+    let disposed = false
+    // Items 1, 6, 7: collect cleanup functions from async subscriptions so the
+    // synchronous cleanup return can reliably unsubscribe everything.
+    const cleanupFns: Array<() => void> = []
+
+    async function init() {
+      try {
+        // 1. Initialize via EvenHubBridge (handles underlying SDK init + splash)
+        const bridge = new EvenHubBridge()
+        await bridge.init()
+        if (disposed) return
+
+        // Expose for dev tools / STT
+        ;(window as any).__evenBridge = bridge
+
+        // Item 7: register onLaunchSource immediately after bridge init, before
+        // the splash, so we don't miss the one-shot event the host fires on load.
+        if (bridge.rawBridge) {
+          cleanupFns.push(
+            bridge.rawBridge.onLaunchSource((source) => {
+              launchSourceRef.current = source
+              console.log('[HUD] Launch source:', source)
+              // Future use: could skip splash minTime if source === 'glassesMenu'
+              // (user is already wearing the glasses and waiting for the HUD)
+            })
+          )
+        }
+        if (disposed) return
+
+        // 2. Show splash
+        await appSplash.show(bridge)
+        if (disposed) return
+
+        // 3. Build custom HUD page using GlassesSdk
+        const sdk = new GlassesSdk()
+        sdkRef.current = sdk
+
+        const hudPage = sdk.createPage('hud')
+
+        // Container definitions
+        type ContainerDef = {
+          key: keyof Elements
+          x: number; y: number; w: number; h: number
+          eventCapture?: boolean
+          initial: string
+        }
+
+        const defs: ContainerDef[] = [
+          { key: 'eventCapture', x: 0,   y: 0,   w: 576, h: 288, eventCapture: true, initial: '' },
+          { key: 'clock',        x: 355, y: 5,   w: 216, h: 283, initial: '' },
+          { key: 'weather',      x: 355, y: 32,  w: 216, h: 251, initial: '' },
+          { key: 'decibels',     x: 355, y: 88,  w: 216, h: 195, initial: '' },
+          { key: 'reticleMain',  x: 278, y: 104, w: 20,  h: 81,  initial: ' \n \n ' },
+          { key: 'reticleLeft',  x: 258, y: 131, w: 20,  h: 27,  initial: ' ' },
+          { key: 'reticleRight', x: 298, y: 131, w: 20,  h: 27,  initial: ' ' },
+        ]
+
+        const els: Partial<Elements> = {}
+        for (const def of defs) {
+          const el = hudPage.addTextElement(def.initial)
+          el.setPosition((p) => { p.setX(def.x); p.setY(def.y) })
+          el.setSize((s) => { s.setWidth(def.w); s.setHeight(def.h) })
+          el.setBorder((b) => { b.setWidth(0); b.setColor('0'); b.setRadius(0) })
+          if (def.eventCapture) {
+            hudPage.setEventCaptureElement(el)
+          }
+          els[def.key] = el
+        }
+        elementsRef.current = els as Elements
+
+        // 4. Wait for splash min time, then clear + show HUD
+        await appSplash.waitMinTime()
+        if (disposed) return
+        await appSplash.clearExtras(bridge)
+        if (disposed) return
+
+        // Initial text
+        const snap = snapshotRef.current
+        els.clock!.setContent(clockText(snap))
+        els.weather!.setContent(weatherText(snap))
+        els.decibels!.setContent(decibelsText(snap))
+        const rc = reticleContent(snap)
+        els.reticleMain!.setContent(rc.main)
+        els.reticleLeft!.setContent(rc.left)
+        els.reticleRight!.setContent(rc.right)
+
+        await sdk.renderPage(hudPage)
+        if (disposed) return
+
+        readyRef.current = true
+
+        // ── Item 2: foreground re-enter & Item 6: device reconnect helper ──────
+        // Refreshes all element content from the latest snapshot and re-renders
+        // the HUD page. Sets readyRef false for the duration so no concurrent
+        // textContainerUpgrade calls slip through.
+        async function refreshAndRender() {
+          readyRef.current = false
+          try {
+            const s = snapshotRef.current
+            els.clock!.setContent(clockText(s))
+            els.weather!.setContent(weatherText(s))
+            els.decibels!.setContent(decibelsText(s))
+            const rc = reticleContent(s)
+            els.reticleMain!.setContent(rc.main)
+            els.reticleLeft!.setContent(rc.left)
+            els.reticleRight!.setContent(rc.right)
+            await sdk.renderPage(hudPage)
+            readyRef.current = true
+          } catch {
+            // Render failed (e.g. device dropped mid-refresh) — stay not-ready;
+            // onDeviceStatusChanged will call refreshAndRender again on reconnect.
+          }
+        }
+
+        // 5. Event handling
+        // Item 1: named function so sdk.removeEventListener can be called on cleanup.
+        const onEvenHubEvent = (event: EvenHubEvent) => {
+          // Item 2: system lifecycle events — foreground enter/exit.
+          // These arrive as sysEvent (not listEvent/textEvent), so mapGlassEvent
+          // won't process them; handle them first and return early.
+          if (event.sysEvent) {
+            const { eventType } = event.sysEvent
+            if (eventType === OsEventTypeList.FOREGROUND_EXIT_EVENT) {
+              // App moved to background — stop all updates to save battery.
+              readyRef.current = false
+            } else if (eventType === OsEventTypeList.FOREGROUND_ENTER_EVENT) {
+              // App returned to foreground — firmware may have cleared the display;
+              // repaint everything before re-enabling per-field updates.
+              void refreshAndRender()
+            }
+            return
+          }
+
+          const action = mapGlassEvent(event)
+          if (!action) return
+
+          if (action.type === 'GO_BACK') {
+            bridge.showShutdownContainer(1)
+          }
+        }
+
+        sdk.addEventListener(onEvenHubEvent)
+        // Item 1: store removal so the cleanup return can unsubscribe.
+        cleanupFns.push(() => sdk.removeEventListener(onEvenHubEvent))
+
+        // Item 6: device disconnect / reconnect.
+        // Sets readyRef false on drop so useEffect updates stop firing, and
+        // re-renders the current page on reconnect to restore the display.
+        if (bridge.rawBridge) {
+          cleanupFns.push(
+            bridge.rawBridge.onDeviceStatusChanged((status) => {
+              if (status.isDisconnected() || status.isConnectionFailed()) {
+                readyRef.current = false
+              } else if (status.isConnected() && !readyRef.current) {
+                // Was disconnected; now back — repaint and re-enable updates.
+                void refreshAndRender()
+              }
+            })
+          )
+        }
+
+      } catch {
+        // Glasses not connected — web companion still works
+      }
+    }
+
+    const unbindKeyboard = bindKeyboard((_action) => {
+      // reserved for future keyboard shortcuts
+    })
+
+    activateKeepAlive('simple_hud_keep_alive')
+    init()
+
+    return () => {
+      disposed = true
+      readyRef.current = false
+      // Items 1, 6, 7: unsubscribe all listeners registered during async init.
+      for (const fn of cleanupFns) fn()
+      unbindKeyboard()
+      deactivateKeepAlive()
+      ;(window as any).__evenBridge = null
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // ── Per-field reactive updates ─────────────────────────────────────────────
+  // Each useEffect watches only the field(s) its container cares about,
+  // so only that one container gets updated — no unnecessary writes.
+
+  useEffect(() => {
+    if (!readyRef.current) return
+    const el = elementsRef.current?.clock
+    if (!el) return
+    el.setContent(clockText(snapshot)).updateWithEvenHubSdk()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [snapshot.timeStr])
+
+  useEffect(() => {
+    if (!readyRef.current) return
+    const el = elementsRef.current?.weather
+    if (!el) return
+    el.setContent(weatherText(snapshot)).updateWithEvenHubSdk()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [snapshot.weather, snapshot.locationKnown])
+
+  useEffect(() => {
+    if (!readyRef.current) return
+    const el = elementsRef.current?.decibels
+    if (!el) return
+    // Use snapshotRef.current (always the latest render's values) rather than
+    // the closed-over snapshot, so a dep-change triggered from any batched
+    // render still sees the correct showDecibels / micActive / db state.
+    el.setContent(decibelsText(snapshotRef.current)).updateWithEvenHubSdk()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [snapshot.db, snapshot.showDecibels, snapshot.micActive])
+
+  useEffect(() => {
+    if (!readyRef.current) return
+    const els = elementsRef.current
+    if (!els) return
+    const { main, left, right } = reticleContent(snapshot)
+    els.reticleMain.setContent(main).updateWithEvenHubSdk()
+    els.reticleLeft.setContent(left).updateWithEvenHubSdk()
+    els.reticleRight.setContent(right).updateWithEvenHubSdk()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [snapshot.reticleEnabled, snapshot.reticleStyle])
+
+}

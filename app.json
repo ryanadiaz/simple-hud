@@ -1,0 +1,33 @@
+{
+  "package_id": "com.ryanadiaz.simplehub",
+  "edition": "202606",
+  "name": "Simple Hud",
+  "version": "1.4.0",
+  "min_app_version": "2.0.0",
+  "min_sdk_version": "0.0.7",
+  "tagline": "A simple heads-up display for your glasses",
+  "description": "A simple heads-up display showing the time, weather, notifications, and microphone decibel level.",
+  "author": "Ryan Diaz",
+  "entrypoint": "index.html",
+  "permissions": [
+    {
+      "name": "network",
+      "desc": "This app needs to access the network in order to access weather data.",
+      "whitelist": [
+        "https://api.open-meteo.com/*",
+        "https://geocoding-api.open-meteo.com/*"
+      ]
+    },
+    {
+      "name": "location",
+      "desc": "Fetches weather data for your location"
+    },
+    {
+      "name": "g2-microphone",
+      "desc": "This app can display the current decibel level from your microphone"
+    }
+  ],
+  "supported_languages": [
+    "en"
+  ]
+}

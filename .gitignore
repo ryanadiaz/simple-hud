@@ -1,0 +1,35 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+dist-ssr/
+
+# Compiled config artifacts (Vite loads .js before .ts — stale copies break HTTPS)
+vite.config.js
+vite.config.d.ts
+
+# Vite local env files — may contain secrets, never commit
+.env.local
+.env.*.local
+
+# TLS certs / keys — generated locally, never commit
+*.pem
+
+# TypeScript incremental build cache
+*.tsbuildinfo
+
+# Log files
+*.log
+
+# Claude Code project settings
+.claude/
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
