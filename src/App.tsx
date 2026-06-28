@@ -33,28 +33,43 @@ function Home() {
     if (!settings.micEnabled && mic.active) mic.stop()
   }, [settings.micEnabled]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  useHudGlasses({
-    timeStr: formatTime12(time),
-    weather: settings.weatherEnabled ? weather.weather : null,
-    locationKnown: settings.weatherEnabled ? !!weather.location : false,
-    db,
-    micActive: mic.active,
-    showDecibels: settings.showDecibels,
-    weatherEnabled: settings.weatherEnabled,
-    reticleEnabled: settings.reticleEnabled,
-    reticleStyle: settings.reticleStyle,
-    funModeData,
-  })
+  useHudGlasses(
+    {
+      timeStr: formatTime12(time),
+      clockEnabled: settings.clockEnabled,
+      hidden: settings.hidden,
+      weather: settings.weatherEnabled ? weather.weather : null,
+      locationKnown: settings.weatherEnabled ? !!weather.location : false,
+      db,
+      micActive: mic.active,
+      showDecibels: settings.showDecibels,
+      weatherEnabled: settings.weatherEnabled,
+      reticleEnabled: settings.reticleEnabled,
+      reticleStyle: settings.reticleStyle,
+      funModeData,
+    },
+    () => setSettings({ hidden: !settings.hidden }),
+  )
 
   return (
     <AppShell header={null}>
       <div className="px-3 pt-4 pb-8 space-y-3">
-        <ClockWidget time={time} />
+        <p className="text-xs italic text-[var(--color-text-muted)] px-1">
+          Double-click to quick show/hide active HUD
+        </p>
+
+        <ClockWidget
+          time={time}
+          enabled={settings.clockEnabled}
+          onToggle={(v) => setSettings({ clockEnabled: v, ...(v && { reticleEnabled: false }) })}
+          hidden={settings.hidden}
+        />
 
         <WeatherWidget
           {...weather}
           enabled={settings.weatherEnabled}
           onToggle={(v) => setSettings({ weatherEnabled: v, ...(v && { reticleEnabled: false }) })}
+          hidden={settings.hidden}
         />
 
         <DecibelWidget
@@ -69,12 +84,13 @@ function Home() {
           mode={mic.mode}
           showDecibels={settings.showDecibels}
           onShowDecibelsToggle={(v) => setSettings({ showDecibels: v })}
+          hidden={settings.hidden}
         />
 
         <ReticleWidget
           enabled={settings.reticleEnabled}
           onToggle={(v) => {
-            setSettings({ reticleEnabled: v, ...(v && { weatherEnabled: false, micEnabled: false }) })
+            setSettings({ reticleEnabled: v, ...(v && { clockEnabled: false, weatherEnabled: false, micEnabled: false }) })
             if (v) mic.stop()
           }}
           style={settings.reticleStyle}

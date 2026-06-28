@@ -45,11 +45,14 @@ interface Elements {
 // ── Text formatters ──────────────────────────────────────────────────────────
 
 function clockText(snapshot: HudSnapshot): string {
-  return snapshot.funModeData?.matchTimerStr ?? snapshot.timeStr
+  if (snapshot.funModeData) return snapshot.funModeData.matchTimerStr
+  if (!snapshot.clockEnabled || snapshot.hidden) return ' '
+  return snapshot.timeStr
 }
 
 function weatherText(snapshot: HudSnapshot): string {
   if (snapshot.funModeData) return snapshot.funModeData.weaponAmmoText
+  if (snapshot.hidden) return ' '
   if (!snapshot.locationKnown) return ' '
   if (!snapshot.weather) return 'Weather loading...'
   const w = snapshot.weather
@@ -69,6 +72,7 @@ function decibelsText(snapshot: HudSnapshot): string {
 // In Fun Mode, HP+Armor goes to the main (y:111) container; alt stays blank.
 function decibelsRouted(snapshot: HudSnapshot): { main: string; alt: string } {
   if (snapshot.funModeData) return { main: snapshot.funModeData.hpArmorText, alt: ' ' }
+  if (snapshot.hidden) return { main: ' ', alt: ' ' }
   const text = decibelsText(snapshot)
   return snapshot.weatherEnabled
     ? { main: text, alt: ' ' }
@@ -116,9 +120,18 @@ function reticleContent(snapshot: HudSnapshot): { main: string; left: string; ri
 
 // ── Hook ─────────────────────────────────────────────────────────────────────
 
-export function useHudGlasses(snapshot: HudSnapshot) {
+export function useHudGlasses(snapshot: HudSnapshot, onDoubleClick?: () => void) {
   const snapshotRef = useRef<HudSnapshot>(snapshot)
   snapshotRef.current = snapshot
+
+  // Keep the latest callback in a ref so the closure-bound event handler
+  // always calls the current version without needing to re-register.
+  const onDoubleClickRef = useRef(onDoubleClick)
+  onDoubleClickRef.current = onDoubleClick
+
+  // Debounce ref: prevents double-fire if the firmware/simulator sends
+  // duplicate DOUBLE_CLICK events within a short window.
+  const lastDoubleClickTimeRef = useRef(0)
 
   const elementsRef = useRef<Elements | null>(null)
   const sdkRef = useRef<GlassesSdk | null>(null)
@@ -252,28 +265,36 @@ export function useHudGlasses(snapshot: HudSnapshot) {
         // 5. Event handling
         // Item 1: named function so sdk.removeEventListener can be called on cleanup.
         const onEvenHubEvent = (event: EvenHubEvent) => {
-          // Item 2: system lifecycle events — foreground enter/exit.
-          // These arrive as sysEvent (not listEvent/textEvent), so mapGlassEvent
-          // won't process them; handle them first and return early.
+          // Double-click: check in every wrapper type before anything else.
+          // We bypass mapGlassEvent here to avoid tryConsumeTap's 220 ms cooldown,
+          // which fires after a preceding CLICK_EVENT and silently drops the
+          // DOUBLE_CLICK_EVENT that the simulator sends immediately after.
+          // We also catch the case where the simulator wraps it in sysEvent rather
+          // than textEvent/listEvent. Own 500 ms debounce prevents double-fire from
+          // duplicate hardware events.
+          const rawEv = event.textEvent ?? event.listEvent ?? event.sysEvent
+          if (rawEv?.eventType === OsEventTypeList.DOUBLE_CLICK_EVENT) {
+            const now = Date.now()
+            if (now - lastDoubleClickTimeRef.current > 500) {
+              lastDoubleClickTimeRef.current = now
+              onDoubleClickRef.current?.()
+            }
+            return
+          }
+
+          // Item 2: remaining system lifecycle events — foreground enter/exit.
           if (event.sysEvent) {
             const { eventType } = event.sysEvent
             if (eventType === OsEventTypeList.FOREGROUND_EXIT_EVENT) {
-              // App moved to background — stop all updates to save battery.
               readyRef.current = false
             } else if (eventType === OsEventTypeList.FOREGROUND_ENTER_EVENT) {
-              // App returned to foreground — firmware may have cleared the display;
-              // repaint everything before re-enabling per-field updates.
               void refreshAndRender()
             }
             return
           }
 
-          const action = mapGlassEvent(event)
-          if (!action) return
-
-          if (action.type === 'GO_BACK') {
-            bridge.showShutdownContainer(1)
-          }
+          // All other events (single click, scroll) via mapGlassEvent.
+          mapGlassEvent(event)
         }
 
         sdk.addEventListener(onEvenHubEvent)
@@ -301,8 +322,15 @@ export function useHudGlasses(snapshot: HudSnapshot) {
       }
     }
 
-    const unbindKeyboard = bindKeyboard((_action) => {
-      // reserved for future keyboard shortcuts
+    // Keyboard: Escape / Backspace → double-click (for desktop simulator testing).
+    const unbindKeyboard = bindKeyboard((action) => {
+      if (action.type === 'GO_BACK') {
+        const now = Date.now()
+        if (now - lastDoubleClickTimeRef.current > 500) {
+          lastDoubleClickTimeRef.current = now
+          onDoubleClickRef.current?.()
+        }
+      }
     })
 
     activateKeepAlive('simple_hud_keep_alive')
@@ -330,7 +358,7 @@ export function useHudGlasses(snapshot: HudSnapshot) {
     if (!el) return
     el.setContent(clockText(snapshot)).updateWithEvenHubSdk()
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [snapshot.timeStr, snapshot.reticleEnabled])
+  }, [snapshot.timeStr, snapshot.clockEnabled, snapshot.hidden, snapshot.reticleEnabled])
 
   useEffect(() => {
     if (!readyRef.current) return
@@ -338,7 +366,7 @@ export function useHudGlasses(snapshot: HudSnapshot) {
     if (!el) return
     el.setContent(weatherText(snapshot)).updateWithEvenHubSdk()
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [snapshot.weather, snapshot.locationKnown, snapshot.reticleEnabled, snapshot.funModeData?.weaponAmmoText])
+  }, [snapshot.weather, snapshot.locationKnown, snapshot.hidden, snapshot.reticleEnabled, snapshot.funModeData?.weaponAmmoText])
 
   useEffect(() => {
     if (!readyRef.current) return
@@ -349,7 +377,7 @@ export function useHudGlasses(snapshot: HudSnapshot) {
     els.decibels.setContent(main).updateWithEvenHubSdk()
     els.decibelsAlt.setContent(alt).updateWithEvenHubSdk()
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [snapshot.db, snapshot.showDecibels, snapshot.micActive, snapshot.weatherEnabled, snapshot.reticleEnabled, snapshot.funModeData?.hpArmorText])
+  }, [snapshot.db, snapshot.showDecibels, snapshot.micActive, snapshot.weatherEnabled, snapshot.hidden, snapshot.reticleEnabled, snapshot.funModeData?.hpArmorText])
 
   useEffect(() => {
     if (!readyRef.current) return

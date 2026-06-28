@@ -4,6 +4,8 @@ import type { ReticleStyle } from '../glass/shared'
 export type { ReticleStyle }
 
 export interface Settings {
+  hidden: boolean
+  clockEnabled: boolean
   weatherEnabled: boolean
   micEnabled: boolean
   showDecibels: boolean
@@ -12,6 +14,8 @@ export interface Settings {
 }
 
 const DEFAULTS: Settings = {
+  hidden: false,
+  clockEnabled: true,
   weatherEnabled: false,
   micEnabled: false,
   showDecibels: true,
