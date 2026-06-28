@@ -5,6 +5,7 @@ import type { WeatherState } from '../hooks/useWeather'
 type Props = WeatherState & {
   enabled: boolean
   onToggle: (v: boolean) => void
+  hidden?: boolean
 }
 
 export function WeatherWidget({
@@ -19,6 +20,7 @@ export function WeatherWidget({
   reset,
   enabled,
   onToggle,
+  hidden,
 }: Props) {
   function handleSearch(e: React.FormEvent) {
     e.preventDefault()
@@ -31,9 +33,16 @@ export function WeatherWidget({
 
         {/* Header */}
         <div className="flex items-center justify-between">
-          <span className="text-xs font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">
-            Weather
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">
+              Weather
+            </span>
+            {hidden && (
+              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-[var(--color-negative)] text-white uppercase tracking-wide">
+                Hidden
+              </span>
+            )}
+          </div>
           <div className="flex items-center gap-3">
             {enabled && location && (
               <button
