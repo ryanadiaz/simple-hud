@@ -4,6 +4,14 @@ export type { WeatherData }
 
 export type ReticleStyle = 'cross' | 'circle' | 'bullseye' | 'diamond'
 
+export interface FunModeData {
+  matchTimerStr: string
+  weaponAmmoText: string
+  hpArmorText: string
+  compassStr: string
+  threatStr: string
+}
+
 export interface HudSnapshot {
   timeStr: string
   weather: WeatherData | null
@@ -15,6 +23,7 @@ export interface HudSnapshot {
   weatherEnabled: boolean
   reticleEnabled: boolean
   reticleStyle: ReticleStyle
+  funModeData: FunModeData | null
 }
 
 export interface AppActions {

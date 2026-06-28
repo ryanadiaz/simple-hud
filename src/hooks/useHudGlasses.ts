@@ -45,10 +45,11 @@ interface Elements {
 // ── Text formatters ──────────────────────────────────────────────────────────
 
 function clockText(snapshot: HudSnapshot): string {
-  return snapshot.timeStr
+  return snapshot.funModeData?.matchTimerStr ?? snapshot.timeStr
 }
 
 function weatherText(snapshot: HudSnapshot): string {
+  if (snapshot.funModeData) return snapshot.funModeData.weaponAmmoText
   if (!snapshot.locationKnown) return ' '
   if (!snapshot.weather) return 'Weather loading...'
   const w = snapshot.weather
@@ -63,27 +64,42 @@ function decibelsText(snapshot: HudSnapshot): string {
 }
 
 // Routes dB text to the correct container based on weather state.
-// When weather is off, decibelsAlt occupies the weather slot (y:32) so there
+// When weather is off, decibelsAlt occupies the weather slot (y:57) so there
 // is no gap between the clock and the decibels readout.
+// In Fun Mode, HP+Armor goes to the main (y:111) container; alt stays blank.
 function decibelsRouted(snapshot: HudSnapshot): { main: string; alt: string } {
+  if (snapshot.funModeData) return { main: snapshot.funModeData.hpArmorText, alt: ' ' }
   const text = decibelsText(snapshot)
   return snapshot.weatherEnabled
     ? { main: text, alt: ' ' }
     : { main: ' ',  alt: text }
 }
 
-// Returns a 10-line box-border string for the full 576×288 display, or a single
-// space when fun mode is off. Rendered in the eventCapture container (z-order 0,
-// behind all other containers) via textContainerUpgrade — the same flicker-free
-// path used for clock/weather/decibels. setBorder is NOT used here because the
-// firmware ignores border changes sent via rebuildPageContainer; only the initial
-// createStartUpPageContainer reliably applies them.
+// Returns a 10-line string for the full 576×288 eventCapture container (z-order 0).
+// Fun Mode: top/bottom border + compass bar on line 1 + threat indicator on line 4.
+// Compass and threat only occupy the left portion (x:0–359); the clock column
+// (x:360+) sits on top of this container and covers the right portion.
 //
-// Layout: top + bottom lines only (28 × ─ = 560px wide), 8 blank lines between
+// Line y-offsets (27 px per line): 0→0, 1→27, 2→54, 3→81, 4→108 … 9→243
 function borderText(snapshot: HudSnapshot): string {
   if (!snapshot.reticleEnabled) return ' '
   const line = '─'.repeat(28)
-  return [line, ...Array(8).fill(' '), line].join('\n')
+  if (!snapshot.funModeData) {
+    return [line, ...Array(8).fill(' '), line].join('\n')
+  }
+  const { compassStr, threatStr } = snapshot.funModeData
+  return [
+    line,       // 0  y:0   — top border
+    compassStr, // 1  y:27  — compass bar, centered in the 360 px visible area
+    ' ',        // 2  y:54
+    ' ',        // 3  y:81
+    threatStr,  // 4  y:108 — threat indicator
+    ' ',        // 5  y:135
+    ' ',        // 6  y:162
+    ' ',        // 7  y:189
+    ' ',        // 8  y:216
+    line,       // 9  y:243 — bottom border
+  ].join('\n')
 }
 
 // Returns content for the 3 reticle containers: { main (3 lines), left, right }.
@@ -314,7 +330,7 @@ export function useHudGlasses(snapshot: HudSnapshot) {
     if (!el) return
     el.setContent(clockText(snapshot)).updateWithEvenHubSdk()
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [snapshot.timeStr])
+  }, [snapshot.timeStr, snapshot.reticleEnabled])
 
   useEffect(() => {
     if (!readyRef.current) return
@@ -322,7 +338,7 @@ export function useHudGlasses(snapshot: HudSnapshot) {
     if (!el) return
     el.setContent(weatherText(snapshot)).updateWithEvenHubSdk()
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [snapshot.weather, snapshot.locationKnown])
+  }, [snapshot.weather, snapshot.locationKnown, snapshot.reticleEnabled, snapshot.funModeData?.weaponAmmoText])
 
   useEffect(() => {
     if (!readyRef.current) return
@@ -333,7 +349,7 @@ export function useHudGlasses(snapshot: HudSnapshot) {
     els.decibels.setContent(main).updateWithEvenHubSdk()
     els.decibelsAlt.setContent(alt).updateWithEvenHubSdk()
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [snapshot.db, snapshot.showDecibels, snapshot.micActive, snapshot.weatherEnabled])
+  }, [snapshot.db, snapshot.showDecibels, snapshot.micActive, snapshot.weatherEnabled, snapshot.reticleEnabled, snapshot.funModeData?.hpArmorText])
 
   useEffect(() => {
     if (!readyRef.current) return
@@ -345,6 +361,6 @@ export function useHudGlasses(snapshot: HudSnapshot) {
     els.reticleLeft.setContent(left).updateWithEvenHubSdk()
     els.reticleRight.setContent(right).updateWithEvenHubSdk()
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [snapshot.reticleEnabled, snapshot.reticleStyle])
+  }, [snapshot.reticleEnabled, snapshot.reticleStyle, snapshot.funModeData?.compassStr, snapshot.funModeData?.threatStr])
 
 }
