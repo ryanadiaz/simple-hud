@@ -10,6 +10,7 @@ import { useDecibels } from './hooks/useDecibels'
 import { useServerBridge } from './hooks/useServerBridge'
 import { useSettings } from './hooks/useSettings'
 import { useHudGlasses } from './hooks/useHudGlasses'
+import { useFunModeData } from './hooks/useFunModeData'
 
 // Components
 import { ClockWidget } from './components/ClockWidget'
@@ -24,6 +25,7 @@ function Home() {
 
   const mic = useMicStream()
   const { db } = useDecibels(mic.active)
+  const funModeData = useFunModeData(settings.reticleEnabled)
 
   useServerBridge((_msg) => {})
 
@@ -41,6 +43,7 @@ function Home() {
     weatherEnabled: settings.weatherEnabled,
     reticleEnabled: settings.reticleEnabled,
     reticleStyle: settings.reticleStyle,
+    funModeData,
   })
 
   return (
