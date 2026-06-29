@@ -242,6 +242,16 @@ export function useHudGlasses(snapshot: HudSnapshot, onDoubleClick?: () => void)
           () => window.removeEventListener('focus', onFocus),
         )
 
+        // Heartbeat: re-render all display content every 30 s.
+        // iOS throttles JS timers when the screen is idle, which slows React
+        // state updates and causes the clock/weather/mic readouts to go stale.
+        // This heartbeat bypasses the reactive layer and pushes current snapshot
+        // values directly to the glasses on a fixed interval.
+        const heartbeat = setInterval(() => {
+          if (!disposed) void refreshAndRender()
+        }, 30_000)
+        cleanupFns.push(() => clearInterval(heartbeat))
+
         // Item 6: device disconnect / reconnect.
         if (bridge.rawBridge) {
           cleanupFns.push(

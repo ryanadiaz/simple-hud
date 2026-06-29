@@ -8,7 +8,7 @@
 
 [![Star this repo](https://img.shields.io/github/stars/ryanadiaz/simple-hud?style=for-the-badge&logo=github&label=%E2%AD%90%20Star%20this%20repo&color=yellow)](https://github.com/ryanadiaz/simple-hud/stargazers)
 &nbsp;&nbsp;
-[![Follow @mrryanadiaz](https://img.shields.io/badge/Follow_%40mrryanadiaz-000000?style=for-the-badge&logo=x&logoColor=white)](https://x.com/mrryanadiaz)
+[![Follow @mrryandiaz](https://img.shields.io/badge/Follow_%40mrryandiaz-000000?style=for-the-badge&logo=x&logoColor=white)](https://x.com/mrryandiaz)
 
 <br />
 
@@ -22,7 +22,7 @@
 
 ---
 
-A heads-up display for your G2 glasses that shows what you actually need — time, weather, and sound level. Nothing more. Built with even-toolkit and ready to run in minutes.
+A minimalistic heads-up display for your G2 glasses with a very simple always on view. Built with even-toolkit.
 
 [Quick Start](#quick-start) &nbsp;|&nbsp; [Features](#features) &nbsp;|&nbsp; [How It Works](#how-it-works) &nbsp;|&nbsp; [Contributing](#contributing)
 
@@ -30,7 +30,7 @@ A heads-up display for your G2 glasses that shows what you actually need — tim
 
 ## Why This Exists
 
-Even Hub ships with generic widgets. Simple HUD puts the three most useful data points — clock, weather, and mic level — in a clean layout on the right side of your field of view. Your left visual field stays completely clear.
+Even Hub ships with generic widgets. Simple HUD puts the three most useful data points — clock, weather, and mic level — in a clean layout on the right side of your field of view. The rest of your visual field stays completely clear.
 
 Double-click the touchpad to blank the display in one gesture. Double-click again to bring it back.
 
@@ -39,8 +39,8 @@ Double-click the touchpad to blank the display in one gesture. Double-click agai
 | Feature | Details |
 |---|---|
 | **Clock** | 12-hour time, on by default every session |
-| **Weather** | Temp, condition, feels-like. Location persists between sessions — no re-entering your city. |
-| **Microphone** | Live decibel readout from the G2 mic, with browser fallback for simulator testing |
+| **Weather** | Temp, condition, feels-like. User's location persists between sessions. |
+| **Microphone** | Live decibel readout from the G2 mic, with browser fallback. |
 | **Hidden mode** | Double-click the touchpad to hide everything. Double-click to restore. |
 | **Persistent settings** | Every toggle remembers its state when you close and reopen the app |
 | **Simulator support** | Fully testable without physical glasses |
@@ -48,15 +48,7 @@ Double-click the touchpad to blank the display in one gesture. Double-click agai
 ## Display Layout
 
 ```
-┌──────────────────────────────────────────────────────┐
-│  576 × 288 px  ·  Even Realities G2                 │
-│                                    ┌──────────────┐  │
-│                                    │   9:41 AM    │  │  ← Clock
-│                                    │  72°F  ☀️    │  │  ← Weather
-│                                    │ Feels 68°F   │  │
-│                                    │  Mic: 54 dB  │  │  ← Decibels
-│                                    └──────────────┘  │
-└──────────────────────────────────────────────────────┘
+![test](/assets/clock-weather-mic.png)
 ```
 
 All elements sit in the right column (x: 360–571). Five independent text containers update without a full page redraw — no flicker.
