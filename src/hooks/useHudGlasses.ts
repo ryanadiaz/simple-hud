@@ -74,9 +74,9 @@ function decibelsRouted(snapshot: HudSnapshot): { main: string; alt: string } {
   if (snapshot.funModeData) return { main: snapshot.funModeData.hpArmorText, alt: ' ' }
   if (snapshot.hidden) return { main: ' ', alt: ' ' }
   const text = decibelsText(snapshot)
-  return snapshot.weatherEnabled
+  return (snapshot.weatherEnabled && snapshot.locationKnown)
     ? { main: text, alt: ' ' }
-    : { main: ' ',  alt: text }
+    : { main: ' ', alt: text }
 }
 
 // Returns a 10-line string for the full 576×288 eventCapture container (z-order 0).
@@ -377,7 +377,7 @@ export function useHudGlasses(snapshot: HudSnapshot, onDoubleClick?: () => void)
     els.decibels.setContent(main).updateWithEvenHubSdk()
     els.decibelsAlt.setContent(alt).updateWithEvenHubSdk()
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [snapshot.db, snapshot.showDecibels, snapshot.micActive, snapshot.weatherEnabled, snapshot.hidden, snapshot.reticleEnabled, snapshot.funModeData?.hpArmorText])
+  }, [snapshot.db, snapshot.showDecibels, snapshot.micActive, snapshot.weatherEnabled, snapshot.locationKnown, snapshot.hidden, snapshot.reticleEnabled, snapshot.funModeData?.hpArmorText])
 
   useEffect(() => {
     if (!readyRef.current) return

@@ -11,6 +11,7 @@ interface Props {
   showDecibels: boolean
   onShowDecibelsToggle: (v: boolean) => void
   hidden?: boolean
+  onUnhide?: () => void
 }
 
 const DB_MAX = 100
@@ -26,7 +27,7 @@ export function DecibelWidget({
   db, active, enabled, onToggle,
   error, mode,
   showDecibels, onShowDecibelsToggle,
-  hidden,
+  hidden, onUnhide,
 }: Props) {
   const pct = db !== null ? Math.min(100, (db / DB_MAX) * 100) : 0
   const { label, color } = db !== null
@@ -44,9 +45,12 @@ export function DecibelWidget({
               Microphone
             </span>
             {hidden && (
-              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-[var(--color-negative)] text-white uppercase tracking-wide">
+              <button
+                onClick={onUnhide}
+                className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-[var(--color-negative)] text-white uppercase tracking-wide hover:opacity-75 active:opacity-60"
+              >
                 Hidden
-              </span>
+              </button>
             )}
             {active && mode && (
               <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-[var(--color-surface-light)] text-[var(--color-text-muted)]">
