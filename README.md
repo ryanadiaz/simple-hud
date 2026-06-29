@@ -47,13 +47,10 @@ Double-click the touchpad to blank the display in one gesture. Double-click agai
 
 ## Display Layout
 
-```
-![test](/assets/clock-weather-mic.png)
-```
+![Glasses](/assets/clock-weather-mic.jpg)
+![Settings](/assets/settings.png)
 
-All elements sit in the right column (x: 360–571). Five independent text containers update without a full page redraw — no flicker.
-
-## Quick Start
+## For Local Development
 
 **1. Clone and install**
 ```bash
@@ -77,13 +74,6 @@ npx @evenrealities/evenhub-simulator@latest http://localhost:5173
 evenhub qr -u http://<your-local-ip>:5173 --http
 ```
 
-**5. Build and deploy**
-```bash
-npm run pack
-```
-
-Upload the generated `simplehud.ehpk` to Even Hub.
-
 ## How It Works
 
 Simple HUD builds a custom page using `GlassesSdk` directly, placing text containers at exact pixel positions on the 576×288 display. Each container updates independently via `updateWithEvenHubSdk()` — only the changed element gets rewritten.
@@ -102,7 +92,7 @@ When the phone screen locks or the app moves to the background, the display reco
 
 ## Settings
 
-Each feature has its own toggle in the companion Settings app. Settings are saved to `localStorage` and restored on every open. The clock is always on by default — other features start off until you enable them.
+Each feature has its own toggle in the companion Settings app. Settings are saved to `localStorage` and restored on every open. 
 
 ## Contributing
 
