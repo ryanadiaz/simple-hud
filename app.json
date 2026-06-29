@@ -6,7 +6,7 @@
   "min_app_version": "2.0.0",
   "min_sdk_version": "0.0.7",
   "tagline": "A simple heads-up display for your glasses",
-  "description": "A simple configurable heads-up display showing the time, weather, and microphone decibel level.",
+  "description": "A simple HUD for those that want a minimalistic always on display. Shows the time, weather, and microphone decibel level.",
   "author": "Ryan Diaz",
   "entrypoint": "index.html",
   "permissions": [

@@ -1,7 +1,4 @@
 import { useState, useCallback } from 'react'
-import type { ReticleStyle } from '../glass/shared'
-
-export type { ReticleStyle }
 
 export interface Settings {
   hidden: boolean
@@ -9,8 +6,6 @@ export interface Settings {
   weatherEnabled: boolean
   micEnabled: boolean
   showDecibels: boolean
-  reticleEnabled: boolean
-  reticleStyle: ReticleStyle
 }
 
 const DEFAULTS: Settings = {
@@ -19,8 +14,6 @@ const DEFAULTS: Settings = {
   weatherEnabled: false,
   micEnabled: false,
   showDecibels: true,
-  reticleEnabled: false,
-  reticleStyle: 'cross',
 }
 
 const STORAGE_KEY = 'hud-settings-v2'
@@ -34,7 +27,7 @@ function load(): Settings {
     // ignore
   }
 
-  return settings
+  return { ...settings, clockEnabled: true, micEnabled: false }
 }
 
 export function useSettings() {
