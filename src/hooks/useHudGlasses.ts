@@ -172,7 +172,12 @@ export function useHudGlasses(snapshot: HudSnapshot, onDoubleClick?: () => void)
         readyRef.current = true
 
         // ── Item 2: foreground re-enter & Item 6: device reconnect helper ──────
+        // refreshing flag prevents concurrent calls (SDK event + browser event
+        // can both fire when the app resumes — only the first should proceed).
+        let refreshing = false
         async function refreshAndRender() {
+          if (refreshing) return
+          refreshing = true
           readyRef.current = false
           try {
             const s = snapshotRef.current
@@ -185,6 +190,8 @@ export function useHudGlasses(snapshot: HudSnapshot, onDoubleClick?: () => void)
             readyRef.current = true
           } catch {
             // Render failed — stay not-ready; onDeviceStatusChanged will retry.
+          } finally {
+            refreshing = false
           }
         }
 
@@ -221,6 +228,19 @@ export function useHudGlasses(snapshot: HudSnapshot, onDoubleClick?: () => void)
 
         sdk.addEventListener(onEvenHubEvent)
         cleanupFns.push(() => sdk.removeEventListener(onEvenHubEvent))
+
+        // Native browser lifecycle — catches iOS screen-off idle recovery which
+        // the SDK FOREGROUND_ENTER_EVENT misses when the WebView is suspended.
+        const onVisible = () => {
+          if (document.visibilityState === 'visible') void refreshAndRender()
+        }
+        const onFocus = () => void refreshAndRender()
+        document.addEventListener('visibilitychange', onVisible)
+        window.addEventListener('focus', onFocus)
+        cleanupFns.push(
+          () => document.removeEventListener('visibilitychange', onVisible),
+          () => window.removeEventListener('focus', onFocus),
+        )
 
         // Item 6: device disconnect / reconnect.
         if (bridge.rawBridge) {
