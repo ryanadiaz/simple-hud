@@ -8,7 +8,7 @@ dist-ssr/
 # Compiled config artifacts (Vite loads .js before .ts — stale copies break HTTPS)
 vite.config.js
 vite.config.d.ts
-.ehpk
+*.ehpk
 
 # Vite local env files — may contain secrets, never commit
 .env.local
