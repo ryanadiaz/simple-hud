@@ -7,6 +7,7 @@ interface Props {
   enabled: boolean
   onToggle: (v: boolean) => void
   error: string | null
+  onReset?: () => void
   mode: 'g2' | 'browser' | null
   showDecibels: boolean
   onShowDecibelsToggle: (v: boolean) => void
@@ -25,7 +26,7 @@ function dbToLabel(db: number): { label: string; color: string } {
 
 export function DecibelWidget({
   db, active, enabled, onToggle,
-  error, mode,
+  error, onReset, mode,
   showDecibels, onShowDecibelsToggle,
   hidden, onUnhide,
 }: Props) {
@@ -58,7 +59,17 @@ export function DecibelWidget({
               </span>
             )}
           </div>
-          <SectionToggle checked={enabled} onChange={onToggle} />
+          <div className="flex items-center gap-3">
+            {error && (
+              <button
+                onClick={onReset}
+                className="text-xs text-[var(--color-text-muted)] hover:opacity-70"
+              >
+                ↺ Retry
+              </button>
+            )}
+            <SectionToggle checked={enabled} onChange={onToggle} />
+          </div>
         </div>
 
         {/* ── Content ── */}

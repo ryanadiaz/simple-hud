@@ -60,14 +60,43 @@ async function fetchWeatherAt(lat: number, lon: number): Promise<WeatherData> {
   }
 }
 
+const LOCATION_KEY = 'hud-weather-location'
+
+function loadStoredLocation(): GeoLocation | null {
+  try {
+    const raw = localStorage.getItem(LOCATION_KEY)
+    if (raw) return JSON.parse(raw) as GeoLocation
+  } catch { /* ignore */ }
+  return null
+}
+
+function persistLocation(loc: GeoLocation | null) {
+  try {
+    if (loc) localStorage.setItem(LOCATION_KEY, JSON.stringify(loc))
+    else localStorage.removeItem(LOCATION_KEY)
+  } catch { /* ignore */ }
+}
+
 export function useWeather(): WeatherState {
   const [weather, setWeather] = useState<WeatherData | null>(null)
-  const [location, setLocation] = useState<GeoLocation | null>(null)
+  const [location, setLocation] = useState<GeoLocation | null>(loadStoredLocation)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [cityInput, setCityInput] = useState('')
   const locationRef = useRef<GeoLocation | null>(null)
   locationRef.current = location
+
+  // On mount, fetch fresh weather if a location was restored from storage.
+  useEffect(() => {
+    const loc = loadStoredLocation()
+    if (!loc) return
+    setLoading(true)
+    fetchWeatherAt(loc.lat, loc.lon)
+      .then(setWeather)
+      .catch(() => setError('Failed to fetch weather'))
+      .finally(() => setLoading(false))
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   function autoDetect() {
     setLoading(true)
@@ -77,6 +106,7 @@ export function useWeather(): WeatherState {
         const { latitude, longitude } = pos.coords
         const loc: GeoLocation = { lat: latitude, lon: longitude, label: 'Current Location' }
         setLocation(loc)
+        persistLocation(loc)
         try {
           setWeather(await fetchWeatherAt(latitude, longitude))
         } catch {
@@ -108,6 +138,7 @@ export function useWeather(): WeatherState {
       const label = admin1 ? `${name}, ${admin1}` : name
       const loc: GeoLocation = { lat: latitude, lon: longitude, label }
       setLocation(loc)
+      persistLocation(loc)
       setWeather(await fetchWeatherAt(latitude, longitude))
     } catch {
       setError('Search failed')
@@ -118,6 +149,7 @@ export function useWeather(): WeatherState {
   function reset() {
     setWeather(null)
     setLocation(null)
+    persistLocation(null)
     setError(null)
     setCityInput('')
     setLoading(false)

@@ -20,7 +20,7 @@ npx @evenrealities/evenhub-simulator@latest http://localhost:5173
 ## Test with Glasses using Prototype QR code
 
 ```bash
-evenhub qr -u http://192.168.68.102:5173 --http
+evenhub qr -u http://192.168.68.147:5173 --http
 ```
 
 ## Build for Even Hub

@@ -9,6 +9,7 @@ export interface MicStreamState {
   mode: 'g2' | 'browser' | null
   start: () => Promise<void>
   stop: () => void
+  restart: () => void
 }
 
 // ── Module-level PCM subscriber registry ─────────────────────────────────────
@@ -56,6 +57,11 @@ export function useMicStream(): MicStreamState {
   const [active, setActive] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [mode, setMode] = useState<'g2' | 'browser' | null>(null)
+
+  // activeRef mirrors `active` state but is readable synchronously — used in
+  // start/stop so that restart() (stop then immediate start) works without
+  // waiting for a React re-render to observe the state change.
+  const activeRef = useRef(false)
   const startingRef = useRef(false)
 
   // G2 SDK refs
@@ -130,16 +136,19 @@ export function useMicStream(): MicStreamState {
     browserStreamRef.current = null
   }, [])
 
+  // `start` does not depend on the `active` state value — it reads activeRef
+  // instead, which is updated synchronously in both start and stop. This keeps
+  // `start` stable across renders and allows restart() to call stop+start
+  // without waiting for a React re-render cycle.
   const start = useCallback(async () => {
-    if (active || startingRef.current) return
+    if (activeRef.current || startingRef.current) return
     startingRef.current = true
+    activeRef.current = true  // optimistic; reset to false in the catch block
     setError(null)
     try {
       const bridge = GlassesSdk.bridge
       if (bridge) {
         // G2 bridge exists — enable audio and probe for real PCM within 600 ms.
-        // The bridge object is always non-null inside Even Hub (even without glasses
-        // paired), so we verify actual connectivity by waiting for a PCM chunk.
         await bridge.audioControl(true)
         const g2Live = await probeForG2Pcm(600)
         if (g2Live) {
@@ -155,19 +164,30 @@ export function useMicStream(): MicStreamState {
       setMode('browser')
       setActive(true)
     } catch {
+      activeRef.current = false
       setError('Microphone unavailable — check browser permissions or glasses connection.')
     } finally {
       startingRef.current = false
     }
-  }, [active, startBrowserMic])
+  }, [startBrowserMic])
 
   const stop = useCallback(() => {
     const bridge = GlassesSdk.bridge
     if (bridge) bridge.audioControl(false).catch(() => {})
     stopBrowserMic()
+    activeRef.current = false  // synchronous so restart() can call start() immediately
+    startingRef.current = false
     setActive(false)
     setMode(null)
   }, [stopBrowserMic])
+
+  // Stops the current stream and immediately retries — useful as an error recovery
+  // action. Works without a re-render delay because stop() updates activeRef
+  // synchronously before start() checks it.
+  const restart = useCallback(() => {
+    stop()
+    start()
+  }, [stop, start])
 
   useEffect(() => {
     return () => {
@@ -177,5 +197,5 @@ export function useMicStream(): MicStreamState {
     }
   }, [stopBrowserMic])
 
-  return { active, error, mode, start, stop }
+  return { active, error, mode, start, stop, restart }
 }
