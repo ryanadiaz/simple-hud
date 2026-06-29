@@ -7,9 +7,10 @@ interface Props {
   enabled: boolean
   onToggle: (v: boolean) => void
   hidden?: boolean
+  onUnhide?: () => void
 }
 
-export function ClockWidget({ time, enabled, onToggle, hidden }: Props) {
+export function ClockWidget({ time, enabled, onToggle, hidden, onUnhide }: Props) {
   const [timeStr, period] = splitPeriod(formatTime12(time))
 
   return (
@@ -21,9 +22,12 @@ export function ClockWidget({ time, enabled, onToggle, hidden }: Props) {
               Clock
             </span>
             {hidden && (
-              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-[var(--color-negative)] text-white uppercase tracking-wide">
+              <button
+                onClick={onUnhide}
+                className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-[var(--color-negative)] text-white uppercase tracking-wide hover:opacity-75 active:opacity-60"
+              >
                 Hidden
-              </span>
+              </button>
             )}
           </div>
           <SectionToggle checked={enabled} onChange={onToggle} />

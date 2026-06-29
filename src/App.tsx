@@ -63,6 +63,7 @@ function Home() {
           enabled={settings.clockEnabled}
           onToggle={(v) => setSettings({ clockEnabled: v, ...(v && { reticleEnabled: false }) })}
           hidden={settings.hidden}
+          onUnhide={() => setSettings({ hidden: false })}
         />
 
         <WeatherWidget
@@ -70,6 +71,7 @@ function Home() {
           enabled={settings.weatherEnabled}
           onToggle={(v) => setSettings({ weatherEnabled: v, ...(v && { reticleEnabled: false }) })}
           hidden={settings.hidden}
+          onUnhide={() => setSettings({ hidden: false })}
         />
 
         <DecibelWidget
@@ -85,6 +87,7 @@ function Home() {
           showDecibels={settings.showDecibels}
           onShowDecibelsToggle={(v) => setSettings({ showDecibels: v })}
           hidden={settings.hidden}
+          onUnhide={() => setSettings({ hidden: false })}
         />
 
         <ReticleWidget
