@@ -33,42 +33,34 @@ function Home() {
     else mic.stop()
   }, [settings.micEnabled]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  useHudGlasses(
-    {
-      timeStr: formatTime12(time),
-      clockEnabled: settings.clockEnabled,
-      hidden: settings.hidden,
-      weather: settings.weatherEnabled ? weather.weather : null,
-      locationKnown: settings.weatherEnabled ? !!weather.location : false,
-      db,
-      micActive: mic.active,
-      showDecibels: settings.showDecibels,
-      weatherEnabled: settings.weatherEnabled,
-    },
-    () => setSettings({ hidden: !settings.hidden }),
-  )
+  useHudGlasses({
+    timeStr: formatTime12(time),
+    clockEnabled: settings.clockEnabled,
+    weather: settings.weatherEnabled ? weather.weather : null,
+    locationKnown: settings.weatherEnabled ? !!weather.location : false,
+    db,
+    micActive: mic.active,
+    showDecibels: settings.showDecibels,
+    weatherEnabled: settings.weatherEnabled,
+  })
 
   return (
     <AppShell header={null}>
       <div className="px-3 pt-4 pb-8 space-y-3">
         <p className="text-xs italic text-[var(--color-text-muted)] px-1">
-          Double-click to quick show/hide active HUD
+          Double-tap the glasses touchpad to exit
         </p>
 
         <ClockWidget
           time={time}
           enabled={settings.clockEnabled}
           onToggle={(v) => setSettings({ clockEnabled: v })}
-          hidden={settings.hidden}
-          onUnhide={() => setSettings({ hidden: false })}
         />
 
         <WeatherWidget
           {...weather}
           enabled={settings.weatherEnabled}
           onToggle={(v) => setSettings({ weatherEnabled: v })}
-          hidden={settings.hidden}
-          onUnhide={() => setSettings({ hidden: false })}
         />
 
         <DecibelWidget
@@ -84,8 +76,6 @@ function Home() {
           onReset={() => mic.restart()}
           showDecibels={settings.showDecibels}
           onShowDecibelsToggle={(v) => setSettings({ showDecibels: v })}
-          hidden={settings.hidden}
-          onUnhide={() => setSettings({ hidden: false })}
         />
       </div>
     </AppShell>

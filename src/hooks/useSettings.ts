@@ -1,7 +1,6 @@
 import { useState, useCallback } from 'react'
 
 export interface Settings {
-  hidden: boolean
   clockEnabled: boolean
   weatherEnabled: boolean
   micEnabled: boolean
@@ -9,7 +8,6 @@ export interface Settings {
 }
 
 const DEFAULTS: Settings = {
-  hidden: false,
   clockEnabled: true,
   weatherEnabled: false,
   micEnabled: false,

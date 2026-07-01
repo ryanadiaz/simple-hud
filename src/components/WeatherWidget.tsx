@@ -5,8 +5,6 @@ import type { WeatherState } from '../hooks/useWeather'
 type Props = WeatherState & {
   enabled: boolean
   onToggle: (v: boolean) => void
-  hidden?: boolean
-  onUnhide?: () => void
 }
 
 export function WeatherWidget({
@@ -21,8 +19,6 @@ export function WeatherWidget({
   reset,
   enabled,
   onToggle,
-  hidden,
-  onUnhide,
 }: Props) {
   function handleSearch(e: React.FormEvent) {
     e.preventDefault()
@@ -39,14 +35,6 @@ export function WeatherWidget({
             <span className="text-xs font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">
               Weather
             </span>
-            {hidden && (
-              <button
-                onClick={onUnhide}
-                className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-[var(--color-negative)] text-white uppercase tracking-wide hover:opacity-75 active:opacity-60"
-              >
-                Hidden
-              </button>
-            )}
           </div>
           <div className="flex items-center gap-3">
             {enabled && location && (

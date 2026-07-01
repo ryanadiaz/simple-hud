@@ -5,7 +5,6 @@ export type { WeatherData }
 export interface HudSnapshot {
   timeStr: string
   clockEnabled: boolean
-  hidden: boolean
   weather: WeatherData | null
   /** True once the user has granted GPS or entered a city — gates weather display on glasses */
   locationKnown: boolean
