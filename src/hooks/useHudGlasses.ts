@@ -33,12 +33,11 @@ interface Elements {
 // ── Text formatters ──────────────────────────────────────────────────────────
 
 function clockText(snapshot: HudSnapshot): string {
-  if (!snapshot.clockEnabled || snapshot.hidden) return ' '
+  if (!snapshot.clockEnabled) return ' '
   return snapshot.timeStr
 }
 
 function weatherText(snapshot: HudSnapshot): string {
-  if (snapshot.hidden) return ' '
   if (!snapshot.locationKnown) return ' '
   if (!snapshot.weather) return 'Weather loading...'
   const w = snapshot.weather
@@ -56,7 +55,6 @@ function decibelsText(snapshot: HudSnapshot): string {
 // When weather is off or no location is set, decibelsAlt occupies the weather
 // slot (y:57) so there is no gap between the clock and the decibels readout.
 function decibelsRouted(snapshot: HudSnapshot): { main: string; alt: string } {
-  if (snapshot.hidden) return { main: ' ', alt: ' ' }
   const text = decibelsText(snapshot)
   return (snapshot.weatherEnabled && snapshot.locationKnown)
     ? { main: text, alt: ' ' }
@@ -65,18 +63,17 @@ function decibelsRouted(snapshot: HudSnapshot): { main: string; alt: string } {
 
 // ── Hook ─────────────────────────────────────────────────────────────────────
 
-export function useHudGlasses(snapshot: HudSnapshot, onDoubleClick?: () => void) {
+export function useHudGlasses(snapshot: HudSnapshot) {
   const snapshotRef = useRef<HudSnapshot>(snapshot)
   snapshotRef.current = snapshot
-
-  // Keep the latest callback in a ref so the closure-bound event handler
-  // always calls the current version without needing to re-register.
-  const onDoubleClickRef = useRef(onDoubleClick)
-  onDoubleClickRef.current = onDoubleClick
 
   // Debounce ref: prevents double-fire if the firmware/simulator sends
   // duplicate DOUBLE_CLICK events within a short window.
   const lastDoubleClickTimeRef = useRef(0)
+
+  // Bridge ref: lets the closure-bound event/keyboard handlers invoke the
+  // native exit dialog (shutDownPageContainer) after async init completes.
+  const bridgeRef = useRef<EvenHubBridge | null>(null)
 
   const elementsRef = useRef<Elements | null>(null)
   const sdkRef = useRef<GlassesSdk | null>(null)
@@ -97,6 +94,7 @@ export function useHudGlasses(snapshot: HudSnapshot, onDoubleClick?: () => void)
         const bridge = new EvenHubBridge()
         await bridge.init()
         if (disposed) return
+        bridgeRef.current = bridge
 
         // Expose for dev tools / STT
         ;(window as any).__evenBridge = bridge
@@ -197,16 +195,18 @@ export function useHudGlasses(snapshot: HudSnapshot, onDoubleClick?: () => void)
 
         // 5. Event handling
         const onEvenHubEvent = (event: EvenHubEvent) => {
-          // Double-click: check in every wrapper type before anything else.
-          // We bypass mapGlassEvent here to avoid tryConsumeTap's 220 ms cooldown,
-          // which fires after a preceding CLICK_EVENT and silently drops the
+          // Double-click at the root page: invoke the native exit dialog
+          // (shutDownPageContainer(1)) per Even Realities app UX convention.
+          // We check every wrapper type before anything else, and bypass
+          // mapGlassEvent to avoid tryConsumeTap's 220 ms cooldown, which fires
+          // after a preceding CLICK_EVENT and silently drops the
           // DOUBLE_CLICK_EVENT that the simulator sends immediately after.
           const rawEv = event.textEvent ?? event.listEvent ?? event.sysEvent
           if (rawEv?.eventType === OsEventTypeList.DOUBLE_CLICK_EVENT) {
             const now = Date.now()
             if (now - lastDoubleClickTimeRef.current > 500) {
               lastDoubleClickTimeRef.current = now
-              onDoubleClickRef.current?.()
+              void bridge.showShutdownContainer(1)
             }
             return
           }
@@ -270,13 +270,14 @@ export function useHudGlasses(snapshot: HudSnapshot, onDoubleClick?: () => void)
       }
     }
 
-    // Keyboard: Escape / Backspace → double-click (for desktop simulator testing).
+    // Keyboard: Escape / Backspace → exit dialog (for desktop simulator testing),
+    // mirroring the on-glasses double-tap behaviour.
     const unbindKeyboard = bindKeyboard((action) => {
       if (action.type === 'GO_BACK') {
         const now = Date.now()
         if (now - lastDoubleClickTimeRef.current > 500) {
           lastDoubleClickTimeRef.current = now
-          onDoubleClickRef.current?.()
+          void bridgeRef.current?.showShutdownContainer(1)
         }
       }
     })
@@ -305,7 +306,7 @@ export function useHudGlasses(snapshot: HudSnapshot, onDoubleClick?: () => void)
     if (!el) return
     el.setContent(clockText(snapshot)).updateWithEvenHubSdk()
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [snapshot.timeStr, snapshot.clockEnabled, snapshot.hidden])
+  }, [snapshot.timeStr, snapshot.clockEnabled])
 
   useEffect(() => {
     if (!readyRef.current) return
@@ -313,7 +314,7 @@ export function useHudGlasses(snapshot: HudSnapshot, onDoubleClick?: () => void)
     if (!el) return
     el.setContent(weatherText(snapshot)).updateWithEvenHubSdk()
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [snapshot.weather, snapshot.locationKnown, snapshot.hidden])
+  }, [snapshot.weather, snapshot.locationKnown])
 
   useEffect(() => {
     if (!readyRef.current) return
@@ -323,6 +324,6 @@ export function useHudGlasses(snapshot: HudSnapshot, onDoubleClick?: () => void)
     els.decibels.setContent(main).updateWithEvenHubSdk()
     els.decibelsAlt.setContent(alt).updateWithEvenHubSdk()
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [snapshot.db, snapshot.showDecibels, snapshot.micActive, snapshot.weatherEnabled, snapshot.locationKnown, snapshot.hidden])
+  }, [snapshot.db, snapshot.showDecibels, snapshot.micActive, snapshot.weatherEnabled, snapshot.locationKnown])
 
 }
